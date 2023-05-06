@@ -1,51 +1,70 @@
 const express = require('express');
-const mongoose = require('mongoose');
-const Product = require('./models/product'); // assuming the product schema is defined in a separate file
-
 const app = express();
+const mongoose = require('mongoose');
+var products   =require("../models/product.js");
 
-// connect to MongoDB
-mongoose.connect('mongodb://localhost/my_database', { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.error('MongoDB connection error:', err));
 
-// define the route
-app.get('/', async (req, res) => {
-  try {
-    const { category, range } = req.query;
+// Import routes
 
-    const query = {};
+//Router Middlewares
+app.use(express.json());
 
-    if (category) {
-      query.category = category;
+// Complete this Route which will return the count of number of products in the range/
+//Type of query
+
+/*
+1. /
+2. /?category=phone
+3. /?category=laptop --> this means all the product in catgory of laptop
+4. /?range=4000-5000 --> this means all the product in the range of 4000-5000
+5. /?range=5000  --> this means all the product above 5000
+6. /?range=4000-5000&category=laptop --> all the laptop that are in price range 4000-5000
+*/
+
+
+app.get("/",async function(req,res){
+
+    var category = req.query.category;
+    var p_range  = req.query.range;
+    var m_price = 0, mx_price=1000000000, count = 0;
+
+    if(p_range){
+
+        m_price = "";
+        mx_price = "";
+        var f = 0;
+        for(var i=0;i<p_range.length;i++){
+
+            if(p_range[i] == '-'){
+                f=1;
+                continue;
+            }
+            if(f) mx_price = mx_price + p_range[i];
+            else m_price = m_price + p_range[i];
+        }
+        m_price  = parseInt(m_price);
+        if(mx_price.length) mx_price = parseInt(mx_price);
+        else mx_price = 1000000000;
     }
 
-    if (range) {
-      const [minPrice, maxPrice] = range.split('-').map(Number);
+    result = await products.find({});
+            
+    for(var i = 0; i < result.length; i++){
 
-      if (minPrice) {
-        query.price = { $gte: minPrice };
-      }
-
-      if (maxPrice) {
-        query.price = { ...query.price, $lte: maxPrice };
-      }
+        if( result[i]['price'] >= m_price){
+            if(result[i]['price'] <=mx_price){
+            
+                if(category){
+                    if(category == result[i]['category'] ) count++;
+                }else{
+                    count++;
+                }
+            }
+        }
     }
+    
+    res.send(JSON.stringify(count));
 
-    const count = await Product.countDocuments(query);
-
-    res.json({ count });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
-  }
 });
-
-// start the server
-const port = 3000;
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-});
-
 
 module.exports = app;
