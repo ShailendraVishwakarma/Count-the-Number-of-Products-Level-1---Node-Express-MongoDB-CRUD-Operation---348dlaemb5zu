@@ -1,46 +1,51 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const Product = require('./models/product');
+const Product = require('./models/product'); // assuming the product schema is defined in a separate file
 
 const app = express();
 
-// Connect to MongoDB database
+// connect to MongoDB
 mongoose.connect('mongodb://localhost/my_database', { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('MongoDB connected'))
-  .catch(err => console.log(err));
+  .catch(err => console.error('MongoDB connection error:', err));
 
+// define the route
 app.get('/', async (req, res) => {
-  const { category, range } = req.query;
-
-  // Construct the filter object based on the query parameters
-  const filter = {};
-  if (category) {
-    filter.category = category;
-  }
-  if (range) {
-    const [minPrice, maxPrice] = range.split('-');
-    if (minPrice && !maxPrice) {
-      filter.price = { $gte: parseInt(minPrice) };
-    } else if (!minPrice && maxPrice) {
-      filter.price = { $lte: parseInt(maxPrice) };
-    } else if (minPrice && maxPrice) {
-      filter.price = { $gte: parseInt(minPrice), $lte: parseInt(maxPrice) };
-    }
-  }
-
   try {
-    // Get the count of products that match the filter
-    const count = await Product.countDocuments(filter);
+    const { category, range } = req.query;
 
-    // Send the count as a response
-    res.send(`Count: ${count}`);
-  } catch (err) {
-    console.log(err);
-    res.status(500).send('Server error');
+    const query = {};
+
+    if (category) {
+      query.category = category;
+    }
+
+    if (range) {
+      const [minPrice, maxPrice] = range.split('-').map(Number);
+
+      if (minPrice) {
+        query.price = { $gte: minPrice };
+      }
+
+      if (maxPrice) {
+        query.price = { ...query.price, $lte: maxPrice };
+      }
+    }
+
+    const count = await Product.countDocuments(query);
+
+    res.json({ count });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-app.listen(3000, () => console.log('Server started on port 3000'));
+// start the server
+const port = 3000;
+app.listen(port, () => {
+  console.log(`Server listening on port ${port}`);
+});
 
 
 module.exports = app;
