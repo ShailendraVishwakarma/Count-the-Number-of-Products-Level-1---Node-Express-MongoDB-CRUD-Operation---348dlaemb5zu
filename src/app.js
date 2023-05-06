@@ -1,38 +1,46 @@
 const express = require('express');
-const app = express();
 const mongoose = require('mongoose');
-var products   =require("../models/product.js");
+const Product = require('./models/product');
 
-// Import routes
+const app = express();
 
-//Router Middlewares
-app.use(express.json());
+// Connect to MongoDB database
+mongoose.connect('mongodb://localhost/my_database', { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.log(err));
 
-//Type of query
+app.get('/', async (req, res) => {
+  const { category, range } = req.query;
 
-/*
+  // Construct the filter object based on the query parameters
+  const filter = {};
+  if (category) {
+    filter.category = category;
+  }
+  if (range) {
+    const [minPrice, maxPrice] = range.split('-');
+    if (minPrice && !maxPrice) {
+      filter.price = { $gte: parseInt(minPrice) };
+    } else if (!minPrice && maxPrice) {
+      filter.price = { $lte: parseInt(maxPrice) };
+    } else if (minPrice && maxPrice) {
+      filter.price = { $gte: parseInt(minPrice), $lte: parseInt(maxPrice) };
+    }
+  }
 
-1. /
-2. /?category=phone
-3. /?category=laptop --> this means all the product in catgory of laptop
-4. /?range=4000-5000 --> this means all the product in the range of 4000-5000
-5. /?range=5000  --> this means all the product above 5000
-6. /?range=4000-5000&category=laptop --> all the laptop that are in price range 4000-5000
+  try {
+    // Get the count of products that match the filter
+    const count = await Product.countDocuments(filter);
 
-*/
-
-
-// Complete this Route which will return the count of number of products in the range/
-
-app.get("/",async function(req,res){
-
-    var count = 0;
-
-    //Write you code here
-    //update count variable 
-
-    res.send(JSON.stringify(count));
-
+    // Send the count as a response
+    res.send(`Count: ${count}`);
+  } catch (err) {
+    console.log(err);
+    res.status(500).send('Server error');
+  }
 });
+
+app.listen(3000, () => console.log('Server started on port 3000'));
+
 
 module.exports = app;
